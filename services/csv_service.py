@@ -1,6 +1,7 @@
 import pandas as pd
 import re
 from transliterate import translit
+import os
 
 class CSVService:
     def __init__(self, data_list):
@@ -21,8 +22,9 @@ class CSVService:
                 elif isinstance(value, (int, float)):
                     df.at[idx, column] = int(value) if isinstance(value, float) and value.is_integer() else value
 
-        output_file = 'leads.csv'
-        df.to_csv(output_file, index=False, encoding='utf-8-sig', sep=';')
+        parent_dir = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
+        output_file = os.path.join(parent_dir, 'leads_csv/msc.csv')
+        df.to_csv(output_file, index=False, encoding='utf-8-sig', sep=',')
 
     def __extract_data(self, data, prefix=""):
         result = {}
