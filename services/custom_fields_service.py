@@ -44,6 +44,7 @@ class CustomFieldsService:
                         {
                             'id': custom_field.get('id', 0),
                             'name': f"{self.prefix}_{custom_field.get('name', '')}",
+                            'custom_field_type': custom_field.get('type', '').upper(),
                             'values': []
                         }
                     )

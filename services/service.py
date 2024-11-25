@@ -8,7 +8,7 @@ class Service:
         try:
             timestamp = int(string)
             if timestamp < 0:
-                return '11.11.2011'
-            return time.strftime('%d.%m.%Y', time.gmtime(timestamp))
+                return '2011-11-11'
+            return time.strftime('%Y-%m-%d', time.gmtime(timestamp))
         except (ValueError, OSError):
             return ''

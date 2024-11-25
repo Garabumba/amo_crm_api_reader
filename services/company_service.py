@@ -19,7 +19,7 @@ class CompanyService(BaseService):
                 return self.fields
             
             try:
-                self.process_common_fields()
+                self._process_common_fields()
                 return self.fields
             except Exception as ex:
                 self.logs_file.write_log_file(f'Ошибка преобразования полей кампании: {ex}')
@@ -35,6 +35,6 @@ class CompanyService(BaseService):
         self.fields['responsible_user'] = response.get('responsible_user_id', 0)
 
         try:
-            self.fill_custom_fields(response.get('custom_fields_values', []))
+            self._fill_custom_fields(response.get('custom_fields_values', []))
         except Exception as ex:
             self.logs_file.write_log_file(f'Ошибка заполнения пользовательских полей кампании: {ex}')

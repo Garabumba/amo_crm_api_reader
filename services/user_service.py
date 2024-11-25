@@ -9,7 +9,12 @@ class UserService:
         
         try:
             status_code, response = http_service.execute_request(f'/api/v4/users/{id}')
-            return response.get('name', '')
+            if status_code == 200:
+                return response.get('name', '')
+            else:
+                file_service = FileService('LoadLeadsLogs')
+                file_service.write_log_file(f'Ошибка получения пользователя {id}: {response}')
+                return ''
         except Exception as ex:
             file_service = FileService('LoadLeadsLogs')
             file_service.write_log_file(f'Ошибка получения пользователя {id}: {ex}')

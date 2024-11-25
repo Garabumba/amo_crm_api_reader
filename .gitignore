@@ -1,4 +1,6 @@
 *.csv
 *.json
+*.sqlite
 LoadLeadsLogs*.txt
 __pycache__/
+venv/

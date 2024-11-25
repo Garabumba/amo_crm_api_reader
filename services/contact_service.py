@@ -20,7 +20,7 @@ class ContactService(BaseService):
                 self.logs_file.write_log_file(f'Ошибка заполнения полей контакта: {ex}')
                 return self.fields
             try:
-                self.process_common_fields()
+                self._process_common_fields()
                 return self.fields
             except Exception as ex:
                 self.logs_file.write_log_file(f'Ошибка преобразования полей контакта: {ex}')
@@ -29,7 +29,6 @@ class ContactService(BaseService):
             return self.fields
         else:
             return self.fields
-        
 
     def __fill_contact_info(self, response):
         embedded = response.get('_embedded', {})
@@ -41,7 +40,7 @@ class ContactService(BaseService):
         self.fields['companies'] = [company.get('id', 0) for company in companies]
 
         try:
-            self.fill_custom_fields(response.get('custom_fields_values', []))
+            self._fill_custom_fields(response.get('custom_fields_values', []))
         except Exception as ex:
             self.logs_file.write_log_file(f'Ошибка заполнения пользовательских полей контакта: {ex}')
         
@@ -56,7 +55,7 @@ class ContactService(BaseService):
             self.fields['companies'] = companies
         else:
             try:
-                self.company_service.process_common_fields()
+                self.company_service._process_common_fields()
             except Exception as ex:
                 self.logs_file.write_log_file(f'Ошибка проебразования полей кампаний контакта: {ex}')
 

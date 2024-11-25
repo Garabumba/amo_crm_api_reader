@@ -12,21 +12,20 @@ class LeadService(BaseService):
 
     def get_leads(self, lead):
         try:
-            self.fill_lead_info(lead)
+            self.__fill_lead_info(lead)
         except Exception as ex:
             self.logs_file.write_log_file(f'Ошибка заполнения полей сделки: {ex}')
             return self.fields
         
         try:
-            self.process_lead()
+            self._process_lead()
             return self.fields
         except Exception as ex:
-            file_service = FileService('LoadLeadsErrors')
             self.logs_file.write_log_file(f'Ошибка преобразования полей сделки: {ex}')
             return self.fields
 
-    def process_lead(self):
-        super().process_common_fields()
+    def _process_lead(self):
+        super()._process_common_fields()
         self.fields['created_at'] = self.service.read_timestamp_date(self.fields['created_at'])
         self.fields['created_by'] = self.user_service.get_user_name(self.fields['created_by'])
         self.fields['updated_at'] = self.service.read_timestamp_date(self.fields['updated_at'])
@@ -34,7 +33,7 @@ class LeadService(BaseService):
         self.fields['closed_at'] = self.service.read_timestamp_date(self.fields['closed_at'])
         self.fields['tags'] = ', '.join(tag.get('name', '') for tag in self.fields['tags'])
 
-    def fill_lead_info(self, lead):
+    def __fill_lead_info(self, lead):
         lead_embedded = lead.get('_embedded', {})
         self.fields['id'] = lead.get('id', 0)
         self.fields['name'] = lead.get('name', '')
@@ -51,12 +50,12 @@ class LeadService(BaseService):
         self.fields['contacts'] = [contact.get('id', 0) for contact in lead_embedded.get('contacts', [])]
         self.fields['companies'] = [company.get('id', 0) for company in lead_embedded.get('companies', [])]
         try:
-            self.fill_custom_fields(lead.get('custom_fields_values', []))
+            self._fill_custom_fields(lead.get('custom_fields_values', []))
         except Exception as ex:
             self.logs_file.write_log_file(f'Ошибка заполнения пользовательских полей сделки: {ex}')
         
         try:
-            self.fill_pipelines()
+            self.__fill_pipelines()
         except Exception as ex:
             self.logs_file.write_log_file(f'Ошибка заполнения воронки и этапа сделки: {ex}')
 
@@ -73,7 +72,7 @@ class LeadService(BaseService):
         else:
             contact_service = ContactService(copy.deepcopy(self.contact_fields), copy.deepcopy(self.company_fields))
             try:
-                contact_service.process_common_fields()
+                contact_service._process_common_fields()
             except Exception as ex:
                 self.logs_file.write_log_file(f'Ошибка преобразования полей контакта сделки: {ex}')
             self.fields['contacts'] = [contact_service.fields]
@@ -91,12 +90,12 @@ class LeadService(BaseService):
         else:
             company_service = CompanyService(copy.deepcopy(self.company_fields))
             try:
-                company_service.process_common_fields()
+                company_service._process_common_fields()
             except Exception as ex:
                 self.logs_file.write_log_file(f'Ошибка преобразования полей кампании сделки: {ex}')
             self.fields['companies'] = [company_service.fields]
 
-    def fill_pipelines(self):
+    def __fill_pipelines(self):
         self.logs_file.write_log_file('Начали заполнение воронки и этапа сделки')
         status_id = self.fields['status_id']
         pipeline_id = self.fields['pipeline']
@@ -129,7 +128,7 @@ class LeadService(BaseService):
             status_code, response = self.http_service.execute_request(f'/api/v4/leads/pipelines/{pipeline_id}')
             if status_code == 200:
                 self.fields['pipeline'] = response.get('name', '')
-                self.logs_file.write_log_file('Закончили заполнение воронки и этапа сделки')
+                self.logs_file.write_log_file('Закончили заполнение воронки')
         except Exception as ex:
             self.logs_file.write_log_file(f'Ошибка запроса "/api/v4/leads/pipelines/{pipeline_id}": {ex}')
 
@@ -138,6 +137,6 @@ class LeadService(BaseService):
             if status_code == 200:
                 self.fields['etap_sdelki'] = response.get('name', '')
             
-            self.logs_file.write_log_file('Закончили заполнение воронки и этапа сделки')
+            self.logs_file.write_log_file('Закончили заполнение этапа сделки')
         except Exception as ex:
             self.logs_file.write_log_file(f'Ошибка запроса "/api/v4/leads/pipelines/{pipeline_id}/statuses/{status_id}": {ex}')
