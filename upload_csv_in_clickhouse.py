@@ -56,9 +56,9 @@ def execute_command(command):
         raise Exception(f"Error executing command: {result.stderr.decode()}")
     return result.stdout.decode()
 
-def import_data(db_name, table_name, csv_path, username, password):
+def import_data(db_name, table_name, csv_path, username, password, port):
     command = f"""
-    clickhouse-client --user={username} --password={password} \
+    clickhouse-client --user={username} --password={password} --port={port} \
     --format_csv_delimiter=";" --format_csv_null_representation='\"\"' \
     --bool_true_representation='\"True\"' --bool_false_representation='\"False\"' \
     --query="INSERT INTO {db_name}.{table_name} FORMAT CSVWithNames" < {csv_path}
@@ -129,12 +129,13 @@ if __name__ == '__main__':
     json_config = config_file_service.read_json_from_file()
 
     host = json_config.get('HOST', 'localhost')
+    port = json_config.get('PORT', 8123)
     username = json_config.get('USERNAME', 'default')
     password = json_config.get('PASSWORD', '')
     db_name = json_config.get('DB_NAME', 'miatest')
     table_names = json_config.get('TABLE_NAMES', ['msc', 'spb'])
 
-    client = get_client(host=host, username=username, password=password)
+    client = get_client(host=host, port=port, username=username, password=password)
     for table_name in table_names:
         parent_dir = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
         file_path = os.path.join(parent_dir, f'leads_csv/{table_name}.csv')
@@ -165,7 +166,7 @@ if __name__ == '__main__':
         
         logs_file_service.write_log_file(f'Вставляем данные из {file_path} в таблицу {table_name} в базу {db_name}')
         try:
-            import_data(db_name, table_name, file_path, username, password)
+            import_data(db_name, table_name, file_path, username, password, port)
             logs_file_service.write_log_file(f'Вставили данные из {file_path} в таблицу {table_name} в базу {db_name}')
         except Exception as ex:
             logs_file_service.write_log_file(f'Ошибка вставки данных из {file_path} в таблицу {table_name} в базу {db_name}: {ex}')
