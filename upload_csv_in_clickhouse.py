@@ -130,6 +130,7 @@ if __name__ == '__main__':
 
     host = json_config.get('HOST', 'localhost')
     port = json_config.get('PORT', 8123)
+    local_port = json_config.get('LOCAL_PORT', 9000)
     username = json_config.get('USERNAME', 'default')
     password = json_config.get('PASSWORD', '')
     db_name = json_config.get('DB_NAME', 'miatest')
@@ -166,7 +167,7 @@ if __name__ == '__main__':
         
         logs_file_service.write_log_file(f'Вставляем данные из {file_path} в таблицу {table_name} в базу {db_name}')
         try:
-            import_data(db_name, table_name, file_path, username, password, port)
+            import_data(db_name, table_name, file_path, username, password, local_port)
             logs_file_service.write_log_file(f'Вставили данные из {file_path} в таблицу {table_name} в базу {db_name}')
         except Exception as ex:
             logs_file_service.write_log_file(f'Ошибка вставки данных из {file_path} в таблицу {table_name} в базу {db_name}: {ex}')
