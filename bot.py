@@ -25,7 +25,7 @@ async def load_config(file_service):
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(None, file_service.read_json_from_file)
 
-def create_query(users_array):
+def create_query(users_array, current_date):
     user_list = "', '".join(users_array)
     return f"""
         SELECT user_info.*, total_summa.total_summa FROM
@@ -39,14 +39,15 @@ def create_query(users_array):
             lead_PervichkaVtorichka
         FROM test_db.users
         WHERE responsible_user IN ('{user_list}')
+        AND `date` = {current_date}
         GROUP BY responsible_user, lead_PervichkaVtorichka) AS user_info
         LEFT JOIN
         (SELECT 
             responsible_user, 
             SUM(oplata_summa) + MAX(oplata_credit_summa) AS total_summa 
         FROM test_db.users
-        WHERE date >= toStartOfMonth(now()) 
-        AND date < toStartOfMonth(addMonths(now(), 1))
+        WHERE `date` >= toStartOfMonth(now()) 
+        AND `date` < toStartOfMonth(addMonths(now(), 1))
         GROUP BY responsible_user) AS total_summa
         ON user_info.responsible_user = total_summa.responsible_user
     """
@@ -93,13 +94,13 @@ def process_query_results(rows, users):
 
     return data
 
-def format_user_message(user):
+def format_user_message(user, current_date):
     run_rate = (
         user['total_viruchka'] / user['monthly_plan'] * 100
         if user['total_viruchka'] != 0 else 0
     )
     return (
-        f"<b>{user['name']} ({datetime.now().date().strftime('%d.%m.%Y')})</b>\n"
+        f"<b>{user['name']} ({current_date.strftime('%d.%m.%Y')})</b>\n"
         f"<i>Принял первичек:</i> {user['prinyal_pervichek']}\n"
         f"<i>Продаж с первичек:</i> {user['prodazh_s_pervichek']}\n"
         f"<i>Конверсия с первички:</i> {user['konv']}%\n"
@@ -142,6 +143,7 @@ async def main():
 
     client = await get_async_client(**db_config)
     clinic_users = await read_users_from_csv(csv_file_path)
+    current_date = datetime.today().date()
 
     async with Bot(token=bot_token) as bot:
         tasks = []
@@ -149,12 +151,12 @@ async def main():
             users = value['users']
             users_array = [u['user'] for u in users]
 
-            query = create_query(users_array)
+            query = create_query(users_array, current_date)
             rows = await client.query(query)
             data = process_query_results(rows, users)
 
             for user in data:
-                message = format_user_message(user)
+                message = format_user_message(user, current_date)
                 chat_id = value['chat_id']
 
                 tasks.append(send_message(bot, chat_id, message, logs_file_service))
