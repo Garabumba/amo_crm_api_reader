@@ -2,9 +2,9 @@ from .base_service import BaseService
 from .company_service import CompanyService
 
 class ContactService(BaseService):
-    def __init__(self, fields, company_fields):
-        super().__init__(fields)
-        self.company_service = CompanyService(company_fields)
+    def __init__(self, fields, company_fields, city):
+        super().__init__(fields, city)
+        self.company_service = CompanyService(company_fields, city)
 
     def get_contact(self, id):
         try:

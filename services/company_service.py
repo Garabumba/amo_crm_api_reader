@@ -1,8 +1,8 @@
 from .base_service import BaseService
 
 class CompanyService(BaseService):
-    def __init__(self, fields):
-        super().__init__(fields)
+    def __init__(self, fields, city):
+        super().__init__(fields, city)
 
     def get_company(self, id):
         try:

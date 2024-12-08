@@ -5,12 +5,13 @@ from .user_service import UserService
 import re
 
 class BaseService:
-    def __init__(self, fields):
-        self.http_service = HTTPService()
-        self.user_service = UserService()
+    def __init__(self, fields, city):
+        self.http_service = HTTPService(city)
+        self.user_service = UserService(city)
         self.service = Service()
         self.fields = fields
-        self.logs_file = FileService('LoadLeadsLogs')
+        self.logs_file = FileService(f'{city}_LoadLeadsLogs')
+        self.city = city
 
     def _fill_custom_fields(self, custom_fields_values):
         self.logs_file.write_log_file('Начали заполнение пользовательских полей')

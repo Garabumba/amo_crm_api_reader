@@ -1,12 +1,11 @@
-from .file_service import FileService
 from .base_service import BaseService
 from .contact_service import ContactService
 from .company_service import CompanyService
 import copy
 
 class LeadService(BaseService):
-    def __init__(self, lead_fields, contact_fields, company_fields):
-        super().__init__(lead_fields)
+    def __init__(self, lead_fields, contact_fields, company_fields, city):
+        super().__init__(lead_fields, city)
         self.contact_fields = contact_fields
         self.company_fields = company_fields
 
@@ -61,7 +60,7 @@ class LeadService(BaseService):
 
         contacts = []
         for contact_id in self.fields['contacts']:
-            contact_service = ContactService(copy.deepcopy(self.contact_fields), copy.deepcopy(self.company_fields))
+            contact_service = ContactService(copy.deepcopy(self.contact_fields), copy.deepcopy(self.company_fields), self.city)
             try:
                 contacts.append(contact_service.get_contact(contact_id))
             except Exception as ex:
@@ -70,7 +69,7 @@ class LeadService(BaseService):
         if len(contacts) > 0:
             self.fields['contacts'] = contacts
         else:
-            contact_service = ContactService(copy.deepcopy(self.contact_fields), copy.deepcopy(self.company_fields))
+            contact_service = ContactService(copy.deepcopy(self.contact_fields), copy.deepcopy(self.company_fields), self.city)
             try:
                 contact_service._process_common_fields()
             except Exception as ex:
@@ -79,7 +78,7 @@ class LeadService(BaseService):
 
         companies = []
         for company_id in self.fields['companies']:
-            company_service = CompanyService(copy.deepcopy(self.company_fields))
+            company_service = CompanyService(copy.deepcopy(self.company_fields), self.city)
             try:
                 companies.append(company_service.get_company(company_id))
             except Exception as ex:
@@ -88,7 +87,7 @@ class LeadService(BaseService):
         if len(companies) > 0:
             self.fields['companies'] = companies
         else:
-            company_service = CompanyService(copy.deepcopy(self.company_fields))
+            company_service = CompanyService(copy.deepcopy(self.company_fields), self.city)
             try:
                 company_service._process_common_fields()
             except Exception as ex:

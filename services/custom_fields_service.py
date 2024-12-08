@@ -2,12 +2,12 @@ from .http_service import HTTPService
 from .file_service import FileService
 
 class CustomFieldsService:
-    def __init__(self, custom_fields_url, prefix, fields):
-        self.http_service = HTTPService()
+    def __init__(self, custom_fields_url, prefix, fields, city):
+        self.http_service = HTTPService(city)
         self.custom_fields_url = custom_fields_url
         self.prefix = prefix
         self.fields = fields
-        self.logs_file = FileService('LoadLeadsLogs')
+        self.logs_file = FileService(f'{city}_LoadLeadsLogs')
     
     def get_fields(self):
         page = 1

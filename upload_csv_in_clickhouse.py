@@ -4,6 +4,7 @@ from clickhouse_connect import get_client
 import os
 import subprocess
 from services.file_service import FileService
+from datetime import datetime, timedelta
 
 def get_unique_types_in_columns(file_path):
     with open(file_path, mode='r', encoding='utf-8') as csv_file:
@@ -65,8 +66,7 @@ def import_data(db_name, table_name, csv_path, username, password, port):
     """
     execute_command(command)
 
-def create_or_truncate_combined_table(db_name, client):
-    combined_table = f"{db_name}.msc_spb"
+def create_or_truncate_combined_table(db_name, combined_table, client):
     query_exists = f"EXISTS TABLE {combined_table}"
     table_exists = client.command(query_exists) == 1
 
@@ -123,6 +123,163 @@ def create_or_truncate_combined_table(db_name, client):
         """
         client.command(create_combined_query)
 
+def create_user_tables(client, users_table):
+    client.command(f"""
+    CREATE TABLE IF NOT EXISTS {users_table} (
+        `index` Int64,
+        `date` Date,
+        `oplata_summa` Nullable(Float64),
+        `oplata_credit_summa` Nullable(Float64),
+        `id` Nullable(Int64),
+        `contacts_0_responsible_user` Nullable(String),
+        `responsible_user` Nullable(String),
+        `lead_PervichkaVtorichka` Nullable(String),
+        `etap_sdelki` Nullable(String),
+        `price` Nullable(Float64),
+        `klinika` Nullable(String),
+        `lead_klinika` Nullable(String),
+        `lead_Konsdoktor_perv_doktor` Nullable(String),
+        `lead_Data_1oj_konsultatsii` Nullable(Date),
+        `leads_with_summa` Nullable(Int64),
+        `leads_count` Nullable(Int64),
+        `conversion` Nullable(Float64)
+    ) ENGINE = MergeTree()
+    ORDER BY `index`
+    """)
+
+def get_users_from_csv(needed_users):
+    parent_dir = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
+    file_path = os.path.join(parent_dir, 'leads_csv/users.csv')
+    
+    with open(file_path, mode='r') as file:
+        reader = csv.reader(file, delimiter=';')
+        next(reader)
+        
+        for user, klinika, chat_id, monthly_plan in reader:
+            needed_users.append(user)
+
+def make_user_info_query(PervichkaVtorichka, needed_users, current_date, combined_table):
+    oplata_summa_conditions = []
+    '''
+    Даты оплаты, если их станет больше - поменять значение в цикле
+    '''
+    for i in range(1, 26):
+        oplata_summa_conditions.append(
+            f"multiIf(lead_Data_oplaty_{i} = '{current_date}' AND lead_PervichkaVtorichka = '{PervichkaVtorichka}', lead_Summa_oplaty_{i}, '0')"
+        )
+    
+    '''
+    Даты преддполагаемых оплаты, если их станет больше - поменять значение в цикле
+    '''
+    credit_columns = [f"multiIf(lead_Data_plan_oplaty_{i} = '{current_date}', lead_Summa_plan_oplaty_{i}, '0')" for i in range(1, 7)]
+    query = f"""
+                SELECT 
+                    users_info.summa,
+                    users_info.credit,
+                    ifNull(users_info.id, leads_count.id) AS id,
+                    ifNull(users_info.contacts_0_responsible_user, leads_count.contacts_0_responsible_user) AS contacts_0_responsible_user,
+                    leads_count.responsible_user,
+                    ifNull(users_info.lead_PervichkaVtorichka, leads_count.lead_PervichkaVtorichka) AS lead_PervichkaVtorichka,
+                    ifNull(users_info.etap_sdelki, leads_count.etap_sdelki) AS etap_sdelki,
+					ifNull(users_info.price, leads_count.price) AS price,
+					ifNull(users_info.klinika, leads_count.klinika) AS klinika,
+					ifNull(users_info.lead_Klinika, leads_count.lead_Klinika) AS lead_Klinika,
+					ifNull(users_info.lead_Konsdoktor_perv_doktor, leads_count.lead_Konsdoktor_perv_doktor) AS lead_Konsdoktor_perv_doktor,
+					ifNull(users_info.lead_Data_1oj_konsultatsii, leads_count.lead_Data_1oj_konsultatsii) AS lead_Data_1oj_konsultatsii,
+                    users_info.leads_with_summa,
+                    leads_count.leads_count,
+                    multiIf(leads_count.leads_count = 0, 0, FLOOR(users_info.leads_with_summa / leads_count.leads_count * 100, 1)) AS conversion
+                FROM
+                    (SELECT users_info.*, user_leads.leads_count FROM
+                        (SELECT
+                            id,
+                            responsible_user,
+                            lead_PervichkaVtorichka,
+                            etap_sdelki,
+                            price,
+                            klinika,
+                            lead_Klinika,
+                            lead_Konsdoktor_perv_doktor,
+                            lead_Data_1oj_konsultatsii,
+                            contacts_0_responsible_user
+                        FROM
+                            {combined_table}
+                        WHERE
+                            responsible_user IN ('{"', '".join(needed_users)}')
+                            AND created_at = '{current_date}'
+                            AND lead_PervichkaVtorichka = '{PervichkaVtorichka}') AS users_info
+                        LEFT JOIN
+                        (SELECT responsible_user, COUNT(responsible_user) as leads_count FROM {combined_table} WHERE created_at = '{current_date}' AND lead_PervichkaVtorichka = '{PervichkaVtorichka}' GROUP BY responsible_user) AS user_leads
+                        ON users_info.responsible_user = user_leads.responsible_user) AS leads_count
+                    LEFT JOIN
+                    (SELECT 
+                        arraySum(x->ifNull(toFloat64(x), 0), [{', '.join(oplata_summa_conditions)}]) AS summa,
+                        arraySum(x->ifNull(toFloat64(x), 0), [{', '.join(credit_columns)}]) AS credit,
+                        id,
+                        contacts_0_responsible_user,
+                        responsible_user,
+                        lead_PervichkaVtorichka,
+                        etap_sdelki,
+                        ifNull(toFloat64(price), 0) AS price,
+                        klinika,
+                        lead_Klinika,
+                        lead_Konsdoktor_perv_doktor,
+                        lead_Data_1oj_konsultatsii,
+                        arrayCount(x->(ifNull(toFloat64(x), 0) <> 0), [{', '.join(oplata_summa_conditions)}]) AS leads_with_summa
+                    FROM 
+                        {combined_table}
+                    WHERE 
+                        lead_PervichkaVtorichka = '{PervichkaVtorichka}' AND ({" OR ".join([f"lead_Data_oplaty_{i} = '{current_date}'" for i in range(1, 26)])})) AS users_info
+                    ON leads_count.responsible_user = users_info.responsible_user
+            """
+
+    return query
+
+def fill_users_table(client, combined_table, users_table):
+    needed_users = []
+    current_date = datetime.now().date()
+    transformed_data = []
+
+    get_users_from_csv(needed_users)
+    query = f"""
+            SELECT * FROM ({make_user_info_query('Первичка', needed_users, current_date, combined_table)})
+            UNION ALL
+            SELECT * FROM ({make_user_info_query('Вторичка', needed_users, current_date, combined_table)})
+        """
+
+    result = client.query(query)
+    max_index_query = f"SELECT MAX(`index`) FROM {users_table}"
+    max_index = client.query(max_index_query)
+    max_index = max_index.result_rows[0][0] if max_index.result_rows[0][0] else 0
+    index = max_index + 1
+    res = result.result_rows
+    for row in res:
+        transformed_row = (
+            index,
+            current_date,
+            row[0],
+            row[1],
+            row[2],
+            row[3],
+            row[4],
+            row[5],
+            row[6],
+            row[7],
+            row[8],
+            row[9],
+            row[10],
+            row[11],
+            row[12],
+            row[13],
+            row[14],
+        )
+        index += 1
+
+        transformed_data.append(transformed_row)
+
+    if transformed_data:
+        client.insert(users_table, transformed_data)
+
 if __name__ == '__main__':
     logs_file_service = FileService('UploadCsvInClickhouseLogs')
     config_file_service = FileService('upload_csv_in_clickhouse_config.json')
@@ -135,6 +292,8 @@ if __name__ == '__main__':
     password = json_config.get('PASSWORD', '')
     db_name = json_config.get('DB_NAME', 'miatest')
     table_names = json_config.get('TABLE_NAMES', ['msc', 'spb'])
+    combined_table = f'{db_name}.msc_spb'
+    users_table = f'{db_name}.users'
 
     client = get_client(host=host, port=port, username=username, password=password)
     for table_name in table_names:
@@ -175,7 +334,19 @@ if __name__ == '__main__':
 
     logs_file_service.write_log_file(f'Объединяем ранее созданные таблицы в базе {db_name}')
     try:
-        create_or_truncate_combined_table(db_name, client)
+        create_or_truncate_combined_table(db_name, combined_table, client)
         logs_file_service.write_log_file(f'Объединили ранее созданные таблицы в базе {db_name}')
     except Exception as ex:
         logs_file_service.write_log_file(f'Ошибка объединения ранее созданных таблицы в базе {db_name}: {ex}')
+
+    try:
+        create_user_tables(client, users_table)
+        logs_file_service.write_log_file(f'Создаём таблицу users в базу {db_name}')
+    except Exception as ex:
+        logs_file_service.write_log_file(f'Ошибка создания таблицы users в базу {db_name}: {ex}')
+
+    try:
+        fill_users_table(client, combined_table, users_table)
+        logs_file_service.write_log_file(f'Заполняем таблицу users')
+    except Exception as ex:
+        logs_file_service.write_log_file(f'Ошибка заполнения таблицы users: {ex}')

@@ -7,7 +7,7 @@ import copy
 from sys import argv
 
 def start(city):
-    logs_file = FileService('LoadLeadsLogs')
+    logs_file = FileService(f'{city}_LoadLeadsLogs')
 
     custom_fields_service = CustomFieldsService(
         '/api/v4/leads/custom_fields', 
@@ -31,7 +31,8 @@ def start(city):
             'companies': [],
             'custom_fields': [],
             'klinika': 'МСК Волконский'
-        }
+        },
+        city
     )
     lead_fields = custom_fields_service.get_fields()
     
@@ -43,7 +44,8 @@ def start(city):
                 'name': '',
                 'responsible_user': '',
                 'custom_fields': []
-            }
+            },
+            city
         )
     company_fields = custom_fields_service.get_fields()
 
@@ -55,10 +57,11 @@ def start(city):
                 'name': '',
                 'responsible_user': '',
                 'custom_fields': []
-            }
+            },
+            city
         )
     contact_fields = custom_fields_service.get_fields()
-    http_service = HTTPService()
+    http_service = HTTPService(city)
     data_list = []
     page = 1
 
@@ -74,7 +77,7 @@ def start(city):
                 leads = embedded.get('leads', [])
                 for lead in leads:
                     logs_file.write_log_file(f'Начали обработку сделки {lead.get("id")}')
-                    lead_service = LeadService(copy.deepcopy(lead_fields), copy.deepcopy(contact_fields), copy.deepcopy(company_fields))
+                    lead_service = LeadService(copy.deepcopy(lead_fields), copy.deepcopy(contact_fields), copy.deepcopy(company_fields), city)
                     data_list.append(lead_service.get_leads(lead))
                     
                 page += 1

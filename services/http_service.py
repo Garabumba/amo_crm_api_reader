@@ -3,16 +3,14 @@ import requests
 from errors.http_errors import RefreshTokenError
 from .file_service import FileService
 import requests_cache
-from sys import argv
 
 class HTTPService:
-    def __init__(self):
-        script, city = argv
+    def __init__(self, city=None):
         self.city = city
-        if city == 'msc':
-            self.file_service = FileService('msc_config.json')
-        elif city == 'spb':
-            self.file_service = FileService('spb_config.json')
+        if city:
+            self.file_service = FileService(f'{city}_config.json')
+        else:
+            self.file_service = FileService('config.json')
         self.file = self.file_service.read_json_from_file()
 
     def execute_request(self, query_path, method='GET', data=None, use_cache=True):
@@ -20,10 +18,10 @@ class HTTPService:
         token = self.file.get('BEARER_TOKEN')
 
         if use_cache:
-            if self.city == 'msc':
-                requests_cache.install_cache('msc_cache', expire_after=10800)
-            elif self.city == 'spb':
-                requests_cache.install_cache('spb_cache', expire_after=10800)
+            if self.city:
+                requests_cache.install_cache(f'{self.city}_cache', expire_after=10800)
+            else:
+                requests_cache.install_cache(f'cache', expire_after=10800)
             
             response = requests_cache.CachedSession().request(
                 url=url,
@@ -38,7 +36,7 @@ class HTTPService:
                 headers={'Authorization': token},
                 data=data
             )
-        logs_file = FileService('LoadLeadsLogs')
+        logs_file = FileService(f'{self.city}_LoadLeadsLogs')
         logs_file.write_log_file(f'URL: "{query_path}"\nКод ответа: {response.status_code}\nОтвет: {response.content}')
 
         if response.status_code == 401:
@@ -80,5 +78,5 @@ class HTTPService:
             else:
                 raise RefreshTokenError(f'Обновление токена. Ошибка {status_code}. {response}')
         except Exception as ex:
-            logs_file = FileService('LoadLeadsLogs')
+            logs_file = FileService(f'{self.city}_LoadLeadsLogs')
             logs_file.write_log_file(f'Обновление токена. Ошибка: {ex}')
