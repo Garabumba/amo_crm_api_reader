@@ -5,9 +5,11 @@ from services.file_service import FileService
 from services.csv_service import CSVService
 import copy
 from sys import argv
+from datetime import datetime
 
 def start(city):
     logs_file = FileService(f'{city}_LoadLeadsLogs')
+    current_time = int(datetime.now().timestamp())
 
     custom_fields_service = CustomFieldsService(
         '/api/v4/leads/custom_fields', 
@@ -68,9 +70,9 @@ def start(city):
     while True:
         try:
             if city == 'spb':
-                status_code, response = http_service.execute_request(f'/api/v4/leads?limit=250&with=source_id,catalog_elements,contacts,loss_reason&filter[pipeline_id]=4959088&page={page}')
+                status_code, response = http_service.execute_request(f'/api/v4/leads?limit=250&with=source_id,catalog_elements,contacts,loss_reason&filter[pipeline_id][0]=4959088&filter[pipeline_id][1]=8294154&filter[pipeline_id][2]=8725166&filter[created_at][to]={current_time}&filter[updated_at][to]={current_time}&page={page}', use_cache=False)
             elif city == 'msc':
-                status_code, response = http_service.execute_request(f'/api/v4/leads?limit=250&with=source_id,catalog_elements,contacts,loss_reason&filter[pipeline_id]=7665806&page={page}')
+                status_code, response = http_service.execute_request(f'/api/v4/leads?limit=250&with=source_id,catalog_elements,contacts,loss_reason&filter[pipeline_id]=7665806&filter[created_at][to]={current_time}&filter[updated_at][to]={current_time}&page={page}', use_cache=False)
             
             if status_code == 200:    
                 embedded = response.get('_embedded', {})

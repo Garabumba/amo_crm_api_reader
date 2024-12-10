@@ -109,6 +109,7 @@ def format_user_message(user, current_date):
         f"<i>Продаж со вторичек:</i> {user['prodazh_so_vtorichek']}\n"
         f"<i>Выручка со вторички:</i> {user['viruchka_so_vtorichki']} ₽\n"
         f"<i>Выручка с прочих доплат:</i> {user['viruchka_s_prochih_doplat']} ₽\n"
+        f"<i>Выручка за месяц:</i> {user['total_viruchka']} ₽\n"
         f"<i>План на месяц:</i> {user['monthly_plan']} ₽\n"
         f"<i>RunRate:</i> {run_rate:.2f} %"
     )
